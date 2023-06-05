@@ -20,6 +20,11 @@ package org.ice4j.pseudotcp;
 import java.io.*;
 import java.util.*;
 import java.util.logging.*;
+
+import org.ice4j.pseudotcp.ConcreteTcpStates.ClosedTcpState;
+import org.ice4j.pseudotcp.ConcreteTcpStates.EstablishedTcpState;
+import org.ice4j.pseudotcp.ConcreteTcpStates.ListenTcpState;
+import org.ice4j.pseudotcp.ConcreteTcpStates.SynReceivedTcpState;
 import org.ice4j.pseudotcp.util.*;
 
 /**
@@ -40,12 +45,12 @@ public class PseudoTCPBase
     /**
      * The logger.
      */
-    private static final Logger logger =
+    public static final Logger logger =
         Logger.getLogger(PseudoTCPBase.class.getName());
     /**
      * Keepalive - disabled by default
      */
-    private static boolean PSEUDO_KEEPALIVE = false;
+    public static boolean PSEUDO_KEEPALIVE = false;
     /**
      * Packet maximum levels
      */
@@ -142,33 +147,35 @@ public class PseudoTCPBase
     /**
      * If there are no pending clocks, wake up every 4 seconds
      */
-    static final long DEFAULT_TIMEOUT = 4000;
+    public static final long DEFAULT_TIMEOUT = 4000;
     /**
      * If the connection is closed, once per minute
      */
-    static final long CLOSED_TIMEOUT = 60 * 1000; // 
+    public static final long CLOSED_TIMEOUT = 60 * 1000; //
     /**
      * Idle ping interval
      */
-    static final int IDLE_PING = 20 * 1000; // 20 seconds (note: WinXP SP2 firewall udp timeout is 90 seconds)
+    public static final int IDLE_PING = 20 * 1000; // 20 seconds (note: WinXP SP2 firewall udp timeout is 90 seconds)
     /**
      * Idle timeout(used if keepalive is enabled)
      */
-    static final int IDLE_TIMEOUT = 90 * 1000; // 90 seconds;
+    public static final int IDLE_TIMEOUT = 90 * 1000; // 90 seconds;
     // TCB data
     /**
      * Tcp state
      */
-    PseudoTcpState m_state;
+    TcpState m_state;
     /**
      * Conversation number
      */
     long m_conv;
-    boolean m_bReadEnable, m_bWriteEnable, m_bOutgoing;
+    public boolean m_bReadEnable;
+    public boolean m_bWriteEnable;
+    public boolean m_bOutgoing;
     /**
      * Last traffic timestamp
      */
-    long m_lasttraffic;
+    public long m_lasttraffic;
     /**
      * List of incoming segments. Segments store info like stream offset and
      * control flags. If segment contains any data it is stored in the receive
@@ -178,11 +185,11 @@ public class PseudoTCPBase
     /**
      * Last receive timestamp
      */
-    long m_lastrecv;
+    public long m_lastrecv;
     /**
      * Receive buffer length
      */
-    int m_rbuf_len;
+    public int m_rbuf_len;
     /**
      * The sequence number of the next byte of data that is expected from the
      * other device
@@ -191,7 +198,7 @@ public class PseudoTCPBase
     /**
      * Receive window size
      */
-    int m_rcv_wnd;
+    public int m_rcv_wnd;
     /**
      * Window scale factor
      */
@@ -199,7 +206,7 @@ public class PseudoTCPBase
     /**
      * The receive buffer
      */
-    ByteFifoBuffer m_rbuf;
+    public ByteFifoBuffer m_rbuf;
     /**
      * Outgoing segments list
      */
@@ -207,11 +214,11 @@ public class PseudoTCPBase
     /**
      * Last send timestamp
      */
-    long m_lastsend;
+    public long m_lastsend;
     /**
      * The sequence number of the next byte of data to be sent
      */
-    long m_snd_nxt;
+    public long m_snd_nxt;
     /**
      * The sequence number of the first byte of data that has been sent but not
      * yet acknowledged
@@ -232,12 +239,12 @@ public class PseudoTCPBase
     /**
      * The send buffer
      */
-    ByteFifoBuffer m_sbuf;
+    public ByteFifoBuffer m_sbuf;
     // Maximum segment size, estimated protocol level, largest segment sent
     /**
      *
      */
-    long m_mss;
+    public long m_mss;
     /**
      *
      */
@@ -253,7 +260,7 @@ public class PseudoTCPBase
     /**
      * Retransmit timer
      */
-    long m_rto_base;
+    public long m_rto_base;
     /**
      * Timestamp tracking
      */
@@ -261,14 +268,16 @@ public class PseudoTCPBase
     /**
      * Round-trip calculation
      */
-    long m_rx_rttvar, m_rx_srtt, m_rx_rto;
+    long m_rx_rttvar;
+    long m_rx_srtt;
+    public long m_rx_rto;
     /**
      * Congestion avoidance, Fast retransmit/recovery, Delayed ACKs
      */
     long m_ssthresh, m_cwnd;
     short m_dup_acks;
     long m_recover;
-    long m_t_ack;
+    public long m_t_ack;
     // Configuration options
     /**
      * Use nagling
@@ -277,10 +286,10 @@ public class PseudoTCPBase
     /*
      * Acknowledgment delay
      */
-    long m_ack_delay;
+    public long m_ack_delay;
     boolean m_support_wnd_scale;
     PseudoTcpNotify m_notify;
-    EnShutdown m_shutdown;
+    public EnShutdown m_shutdown;
     /**
      * Debug name used to identify peers in log messages
      */
@@ -296,6 +305,8 @@ public class PseudoTCPBase
      */
     public PseudoTCPBase(PseudoTcpNotify notify, long conv)
     {
+        m_state = new ListenTcpState(this);
+
         m_notify = notify;
         m_shutdown = EnShutdown.SD_NONE;
         m_rbuf_len = DEFAULT_RCV_BUF_SIZE;
@@ -306,7 +317,6 @@ public class PseudoTCPBase
         assert m_rbuf_len + MIN_PACKET < m_sbuf_len;
         long now = now();
 
-        m_state = PseudoTcpState.TCP_LISTEN;
         m_conv = conv;
         m_rcv_wnd = m_rbuf_len;
         m_rwnd_scale = m_swnd_scale = 0;
@@ -343,6 +353,10 @@ public class PseudoTCPBase
         m_support_wnd_scale = false;
     }
 
+    public void changeState(TcpState tcpState) {
+        this.m_state = tcpState;
+    }
+
     /**
      * Enqueues connect message and starts connection procedure
      *
@@ -350,17 +364,7 @@ public class PseudoTCPBase
      */
     public void connect() throws IOException
     {
-        if (m_state != PseudoTcpState.TCP_LISTEN)
-        {
-            //m_error = PseudoTcpError.EINVAL;
-            throw new IOException("Invalid socket state: "+m_state);
-        }
-
-        m_state = PseudoTcpState.TCP_SYN_SENT;
-        logger.log(Level.FINE, "State: TCP_SYN_SENT", "");
-
-        queueConnectMessage();
-        attemptSend(SendFlags.sfNone);
+        m_state.connect();
     }
 
     /**
@@ -371,10 +375,7 @@ public class PseudoTCPBase
     public void notifyMTU(int mtu)
     {
         m_mtu_advise = mtu;
-        if (m_state == PseudoTcpState.TCP_ESTABLISHED)
-        {
-            adjustMTU();
-        }
+        m_state.notifyMTU(mtu);
     }
     
     /**
@@ -420,7 +421,7 @@ public class PseudoTCPBase
         {
             logger.log(Level.FINEST, debugName + " update clock " + now);
         }*/
-        if (m_state == PseudoTcpState.TCP_CLOSED)
+        if (m_state.ordinal() == 4)
         {
             return;
         }
@@ -480,20 +481,7 @@ public class PseudoTCPBase
 
         if (PSEUDO_KEEPALIVE) // Check for idle timeout
         {
-            if ((m_state == PseudoTcpState.TCP_ESTABLISHED)
-                && (timeDiff(m_lastrecv + IDLE_TIMEOUT, now) <= 0))
-            {
-                closedown(new IOException("Connection aborted"));
-                return;
-            }
-
-            // Check for ping timeout (to keep udp mapping open)
-            if ((m_state == PseudoTcpState.TCP_ESTABLISHED)
-                && (timeDiff(m_lasttraffic + (m_bOutgoing ? IDLE_PING * 3 / 2 : IDLE_PING), now) <= 0))
-            {
-                packet(m_snd_nxt, (short) 0, 0, 0);
-            }
-
+            m_state.notifyClock(now);
         }
     }
 
@@ -568,17 +556,7 @@ public class PseudoTCPBase
             }
             else
             {
-                if (opt == Option.OPT_SNDBUF)
-                {
-                    assert m_state == PseudoTcpState.TCP_LISTEN;
-                    resizeSendBuffer((int)value);
-                }
-                else
-                {
-                    assert opt == Option.OPT_RCVBUF;
-                    assert m_state == PseudoTcpState.TCP_LISTEN;
-                    resizeReceiveBuffer((int)value);
-                }
+                m_state.setOption(opt, value);
             }
         }
     }
@@ -650,33 +628,7 @@ public class PseudoTCPBase
      */
     public synchronized int recv(byte[] buffer, int offset, int len) throws IOException
     {
-        if (m_state != PseudoTcpState.TCP_ESTABLISHED)
-        {
-            throw new IOException("Socket not connected");
-        }
-
-        int read = m_rbuf.read(buffer, offset, len);
-
-        // If there's no data in |m_rbuf|.
-        if (read == 0)
-        {
-            m_bReadEnable = true;
-            return 0;
-        }
-        assert read != -1;
-
-        int available_space = m_rbuf.getWriteRemaining();
-        if (available_space - m_rcv_wnd >= Math.min(m_rbuf_len / 8, m_mss))
-        {
-            boolean bWasClosed = (m_rcv_wnd == 0); // !?! Not sure about this was closed business
-            m_rcv_wnd = available_space;
-
-            if (bWasClosed)
-            {
-                attemptSend(SendFlags.sfImmediateAck);
-            }
-        }
-        return read;
+        return m_state.recv(buffer, offset, len);
     }
 
     /**
@@ -718,23 +670,7 @@ public class PseudoTCPBase
     public synchronized int send(byte[] buffer, int offset, int len)
         throws IOException
     {
-        if (m_state != PseudoTcpState.TCP_ESTABLISHED)
-        {
-            throw new IOException("Socket not connected");
-        }
-
-        long available_space;
-        available_space = m_sbuf.getWriteRemaining();
-
-        if (available_space == 0)
-        {
-            m_bWriteEnable = true;
-            return 0;
-        }
-
-        int written = queue(buffer, offset, len, false);
-        attemptSend(SendFlags.sfNone);
-        return written;
+        return m_state.send(buffer, offset, len);
     }
 
     /**
@@ -746,10 +682,7 @@ public class PseudoTCPBase
     {
         logger.log(Level.FINE, debugName + " close (" + force + ")");
         m_shutdown = force ? EnShutdown.SD_FORCEFUL : EnShutdown.SD_GRACEFUL;
-        if (force)
-        {
-            m_state = PseudoTcpState.TCP_CLOSED;
-        }
+        m_state.close(force);
     }
 
 //
@@ -764,7 +697,7 @@ public class PseudoTCPBase
      * @param bCtrl true for control data
      * @return written byte count
      */
-    int queue(byte[] buffer, int offset, int len, boolean bCtrl)
+    public int queue(byte[] buffer, int offset, int len, boolean bCtrl)
     {
         int available_space;
         available_space = m_sbuf.getWriteRemaining();
@@ -819,7 +752,7 @@ public class PseudoTCPBase
      * @see PseudoTcpNotify
      * @see WriteResult
      */
-    WriteResult packet(long seq, short flags, long offset, long len)
+    public WriteResult packet(long seq, short flags, long offset, long len)
     {
         assert HEADER_SIZE + len <= MAX_PACKET;
 
@@ -965,46 +898,11 @@ public class PseudoTCPBase
             return -1;
         }
 
-        long nTimeout;
         long snd_buffered;
         snd_buffered = m_sbuf.getBuffered();
-        if ((m_shutdown == EnShutdown.SD_GRACEFUL)
-            && ((m_state != PseudoTcpState.TCP_ESTABLISHED)
-            || ((snd_buffered == 0) && (m_t_ack == 0))))
-        {
-            return -1;
-        }
+        return m_state.clock_check(now, snd_buffered);
 
-        if (m_state == PseudoTcpState.TCP_CLOSED)
-        {
-            return CLOSED_TIMEOUT;
-        }
 
-        nTimeout = DEFAULT_TIMEOUT;
-
-        if (m_t_ack > 0)
-        {
-            nTimeout = Math.min(nTimeout, timeDiff(m_t_ack + m_ack_delay, now));
-        }
-        if (m_rto_base > 0)
-        {
-            nTimeout = Math.min(nTimeout, timeDiff(m_rto_base + m_rx_rto, now));
-        }
-        if (getM_snd_wnd() == 0)
-        {
-            nTimeout = Math.min(nTimeout, timeDiff(m_lastsend + m_rx_rto, now));
-        }
-        if (PSEUDO_KEEPALIVE)
-        {
-            if (m_state == PseudoTcpState.TCP_ESTABLISHED)
-            {
-                nTimeout = Math.min(
-                    nTimeout,
-                    timeDiff(m_lasttraffic + (m_bOutgoing ? IDLE_PING * 3 / 2 : IDLE_PING), now));
-            }
-        }
-        //nTimeout is used on wait methods, so cannot be equal to 0
-        return nTimeout <= 0 ? 1 : nTimeout;
     }
 
     /**
@@ -1033,7 +931,7 @@ public class PseudoTCPBase
         m_lasttraffic = m_lastrecv = now;
         m_bOutgoing = false;
 
-        if (m_state == PseudoTcpState.TCP_CLOSED)
+        if (m_state.ordinal() == PseudoTcpState.TCP_CLOSED.ordinal())
         {
             // !?! send reset?
             closedown(new IOException(debugName + " in closed state"));
@@ -1069,21 +967,21 @@ public class PseudoTCPBase
                         return false;
                     }
 
-                    if (m_state == PseudoTcpState.TCP_LISTEN)
+                    if (m_state.ordinal() == PseudoTcpState.TCP_LISTEN.ordinal())
                     {
-                        m_state = PseudoTcpState.TCP_SYN_RECEIVED;
+                        changeState(new SynReceivedTcpState(this));
                         logger.log(Level.FINE,
-                                   debugName + " State: TCP_SYN_RECEIVED");
+                                   debugName + " TcpState: TCP_SYN_RECEIVED");
                         //m_notify->associate(addr);
                         queueConnectMessage();
                     }
                     else
                     {
-                        if (m_state == PseudoTcpState.TCP_SYN_SENT)
+                        if (m_state.ordinal() == PseudoTcpState.TCP_SYN_SENT.ordinal())
                         {
-                            m_state = PseudoTcpState.TCP_ESTABLISHED;
+                            changeState(new EstablishedTcpState(this));
                             logger.log(Level.FINE,
-                                       debugName + " State: TCP_ESTABLISHED");
+                                       debugName + " TcpState: TCP_ESTABLISHED");
                             adjustMTU();
                             if (m_notify != null)
                             {
@@ -1272,10 +1170,10 @@ public class PseudoTCPBase
             }
         }
         // !?! A bit hacky
-        if ((m_state == PseudoTcpState.TCP_SYN_RECEIVED) && !bConnect)
+        if ((m_state.ordinal() == PseudoTcpState.TCP_SYN_RECEIVED.ordinal()) && !bConnect)
         {
-            m_state = PseudoTcpState.TCP_ESTABLISHED;
-            logger.log(Level.FINE, debugName + " State: TCP_ESTABLISHED");
+            changeState(new EstablishedTcpState(this));
+            logger.log(Level.FINE, debugName + " TcpState: TCP_ESTABLISHED");
             adjustMTU();
             if (m_notify != null)
             {
@@ -1477,7 +1375,7 @@ public class PseudoTCPBase
      * @param earlier timestamp in ms
      * @return difference between <tt>later</tt> and <tt>earlier</tt>
      */
-    private static long timeDiff(long later, long earlier)
+    public static long timeDiff(long later, long earlier)
     {
         return later - earlier;
     }
@@ -1592,9 +1490,7 @@ public class PseudoTCPBase
     boolean transmit(SSegment seg, long now)
     {
         //  Logger.Log(LS_INFO) << "seg->xmit: "<< seg->xmit;
-        if (seg.xmit >= ((m_state == PseudoTcpState.TCP_ESTABLISHED) ? 15 : 30))
-        {
-            logger.log(Level.FINE, "too many retransmits");
+        if (!m_state.transmit(seg, now)) {
             return false;
         }
 
@@ -1681,7 +1577,7 @@ public class PseudoTCPBase
      *
      * @param sflags
      */
-    void attemptSend(SendFlags sflags)
+    public void attemptSend(SendFlags sflags)
     {
         long now = now();
 
@@ -1830,8 +1726,8 @@ public class PseudoTCPBase
      */
     void closedown(IOException e)
     {
-        logger.log(Level.FINE, debugName + " State: TCP_CLOSED ");
-        m_state = PseudoTcpState.TCP_CLOSED;
+        logger.log(Level.FINE, debugName + " TcpState: TCP_CLOSED ");
+        m_state.closedown(e);
         if (m_notify != null)
         {
             m_notify.onTcpClosed(this, e);
@@ -1841,7 +1737,7 @@ public class PseudoTCPBase
     /**
      * Adjusts MTU
      */
-    void adjustMTU()
+    public void adjustMTU()
     {
         // Determine our current mss level, so that we can adjust appropriately later
         for (m_msslevel = 0; PACKET_MAXIMUMS[(m_msslevel + 1)] > 0; ++m_msslevel)
@@ -1881,7 +1777,7 @@ public class PseudoTCPBase
     /**
      * Enqueues connect message
      */
-    void queueConnectMessage()
+    public void queueConnectMessage()
     {
         byte[] buff = null;        
         if (m_support_wnd_scale)
@@ -2020,7 +1916,7 @@ public class PseudoTCPBase
      *
      * @param new_size
      */
-    void resizeSendBuffer(int new_size)
+    public void resizeSendBuffer(int new_size)
     {
         m_sbuf_len = new_size;
         m_sbuf.setCapacity(new_size);
@@ -2031,7 +1927,7 @@ public class PseudoTCPBase
      *
      * @param new_size
      */
-    void resizeReceiveBuffer(int new_size)
+    public void resizeReceiveBuffer(int new_size)
     {
         short scale_factor = 0;
 
@@ -2063,7 +1959,7 @@ public class PseudoTCPBase
     /**
      * @return send window size
      */
-    int getM_snd_wnd()
+    public int getM_snd_wnd()
     {
         return m_snd_wnd;
     }
@@ -2072,7 +1968,7 @@ public class PseudoTCPBase
      *
      * @return current @link{PseudoTcpState}
      */
-    public PseudoTcpState getState()
+    public TcpState getState()
     {
         return m_state;
     }
@@ -2124,8 +2020,7 @@ public class PseudoTCPBase
 
     void setConversationID(long convID)
     {
-        if (m_state != PseudoTcpState.TCP_LISTEN)
-            throw new IllegalStateException();
+        m_state.setConversationID(convID);
         this.m_conv = convID;
     }
 

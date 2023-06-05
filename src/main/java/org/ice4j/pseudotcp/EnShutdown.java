@@ -22,7 +22,7 @@ package org.ice4j.pseudotcp;
  *
  * @author Pawel Domas
  */
-enum EnShutdown
+public enum EnShutdown
 {
     /**
      * There was no shutdown

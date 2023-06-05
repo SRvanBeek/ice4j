@@ -22,11 +22,11 @@ package org.ice4j.pseudotcp;
  *
  * @author Pawel Domas
  */
-class SSegment
+public class SSegment
 {
     long seq, len;
     //uint32 tstamp;
-    short xmit;
+    public short xmit;
     boolean bCtrl;
 
     SSegment(long s, long l, boolean c)

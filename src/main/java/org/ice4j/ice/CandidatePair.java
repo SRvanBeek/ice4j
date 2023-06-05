@@ -479,7 +479,7 @@ public class CandidatePair
     public String toString()
     {
         return
-            "CandidatePair (State=" + getState() + " Priority=" + getPriority()
+            "CandidatePair (TcpState=" + getState() + " Priority=" + getPriority()
                 + "):\n\tLocalCandidate=" + getLocalCandidate()
                 + "\n\tRemoteCandidate=" + getRemoteCandidate();
     }

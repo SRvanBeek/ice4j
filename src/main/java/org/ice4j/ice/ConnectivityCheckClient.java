@@ -434,7 +434,7 @@ class ConnectivityCheckClient
     /**
      * Updates all check list and timer states after a check has completed
      * (both if completion was successful or not). The method implements
-     * section "7.1.3.3. Check List and Timer State Updates"
+     * section "7.1.3.3. Check List and Timer TcpState Updates"
      *
      * @param checkedPair the pair whose check has just completed.
      */

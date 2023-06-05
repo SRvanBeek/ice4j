@@ -22,7 +22,7 @@ package org.ice4j.pseudotcp;
  *
  * @author Pawel Domas
  */
-enum SendFlags
+public enum SendFlags
 {
     sfNone, sfImmediateAck, sfDelayedAck
 }
